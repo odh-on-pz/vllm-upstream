@@ -1,0 +1,46 @@
+FROM registry.access.redhat.com/ubi9/ubi:latest
+USER root
+ENV CMAKE_PREFIX_PATH=/usr/
+ARG CARGO_HOME=/opt/.cargo/
+ARG ARTIFACTORY_USER=""
+ARG ARTIFACTORY_TOKEN=""
+ARG PIP_EXTRA_INDEX_URL=https://${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN}@na.artifactory.swg-devops.com/artifactory/api/pypi/sys-linux-power-team-ftp3distro-odh-pypi-local/simple
+ARG PIP_TRUSTED_HOST=na.artifactory.swg-devops.com
+ARG PYTHON_VERSION=3.11
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
+
+RUN dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm -y
+RUN dnf install gcc-toolset-12* openssl-devel git protobuf-* bzip2 libtool autoconf re2-devel utf8proc.ppc64le rust cargo python${PYTHON_VERSION}-devel python${PYTHON_VERSION}-setuptools python${PYTHON_VERSION}-pip kmod python3-protobuf.noarch openblas-devel libtiff openjpeg2 libimagequant libxcb zeromq -y
+WORKDIR /workspace/
+
+# Update symlinks to make python with PYTHON_VERSION to be used as python binary
+RUN ln -s /usr/bin/python3.11 /usr/bin/python && ln -s /usr/bin/pip3.11 /usr/bin/pip
+
+# Install numctl library
+RUN git clone -b v2.0.16 --single-branch https://github.com/numactl/numactl
+RUN cd /workspace/numactl && ./autogen.sh && ./configure && make install && cd .. && rm -rf numactl
+
+COPY ./ /workspace/vllm
+WORKDIR /workspace/vllm
+
+RUN export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH && export CXX=/opt/rh/gcc-toolset-12/root/usr/bin/g++ && source /opt/rh/gcc-toolset-12/enable && export PATH=$PATH:${CARGO_HOME}/bin && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib64/python${PYTHON_VERSION}/site-packages/torch.libs && \
+        python -m pip install -v --prefer-binary --extra-index-url $PIP_EXTRA_INDEX_URL pyarrow==18.1.0 torch==2.5.1 torchvision==0.20.1 xformers uvloop==0.20.0 opencv-python-headless && \
+        python -m pip install -v outlines==0.1.11 pyzmq cmake>=3.26 ninja packaging setuptools-scm>=8 wheel jinja2 \
+        -r requirements-cpu.txt 
+
+RUN export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH && export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib64/python${PYTHON_VERSION}/site-packages/torch.libs && export CXX=/opt/rh/gcc-toolset-12/root/usr/bin/g++ && source /opt/rh/gcc-toolset-12/enable && VLLM_TARGET_DEVICE=cpu python setup.py develop
+
+# Set up the environment for the non-root user
+RUN umask 002 \
+    && mkdir -p /home/vllm \
+    && useradd --uid 2000 --gid 0 vllm \
+    && chmod g+rwx $HOME /usr/src /workspace/vllm
+
+# Set environment variables
+ENV HF_HUB_OFFLINE=0 \
+    PORT=8000 \
+    HOME=/home/vllm \
+    VLLM_USAGE_SOURCE=production-docker-image \
+    VLLM_WORKER_MULTIPROC_METHOD=fork
+
+ENTRYPOINT ["python", "-m", "vllm.entrypoints.openai.api_server"]

@@ -1,0 +1,25 @@
+FROM docker.io/library/vllm:openai 
+USER root
+ENV CMAKE_PREFIX_PATH=/usr/
+ARG CARGO_HOME=/opt/.cargo/
+ARG ARTIFACTORY_USER="<user>"
+ARG ARTIFACTORY_TOKEN="<token>"
+ARG PIP_EXTRA_INDEX_URL=https://${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN}@na.artifactory.swg-devops.com/artifactory/api/pypi/sys-linux-power-team-ftp3distro-odh-pypi-local/simple
+ARG PIP_TRUSTED_HOST=na.artifactory.swg-devops.com
+ARG PYTHON_VERSION=3.11
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
+
+RUN source /opt/rh/gcc-toolset-12/enable
+
+WORKDIR /workspace/
+
+RUN python -m pip install -v --prefer-binary --extra-index-url $PIP_EXTRA_INDEX_URL grpcio==1.70.0 vllm_tgis_adapter==0.6.2
+RUN chmod -R g+rwx $HOME /home/vllm
+# Set environment variables
+ENV HF_HUB_OFFLINE=0 \
+    PORT=8000 \
+    HOME=/home/vllm \
+    VLLM_USAGE_SOURCE=production-docker-image \
+    VLLM_WORKER_MULTIPROC_METHOD=fork
+
+ENTRYPOINT ["python", "-m", "vllm_tgis_adapter"]
