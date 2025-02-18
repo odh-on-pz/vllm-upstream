@@ -1,4 +1,6 @@
-FROM docker.io/library/vllm:openai 
+ARG VLLM_IMAGE
+FROM ${VLLM_IMAGE}
+
 USER root
 ENV CMAKE_PREFIX_PATH=/usr/
 ARG CARGO_HOME=/opt/.cargo/
