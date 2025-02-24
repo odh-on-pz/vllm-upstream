@@ -10,19 +10,17 @@ ARG PYTHON_VERSION=3.11
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
 
 RUN dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm -y
-RUN dnf install gcc-toolset-12* openssl-devel git protobuf-* bzip2 libtool autoconf re2-devel utf8proc.ppc64le rust cargo python${PYTHON_VERSION}-devel python${PYTHON_VERSION}-setuptools python${PYTHON_VERSION}-pip kmod python3-protobuf.noarch libtiff openjpeg2 libimagequant libxcb zeromq -y
+RUN dnf install tar gcc-toolset-12* openssl-devel git protobuf-* bzip2 libtool autoconf re2-devel utf8proc.ppc64le rust cargo python${PYTHON_VERSION}-devel python${PYTHON_VERSION}-setuptools python${PYTHON_VERSION}-pip kmod python3-protobuf.noarch libtiff openjpeg2 libimagequant libxcb zeromq -y
 WORKDIR /workspace/
 
 # Update symlinks to make python with PYTHON_VERSION to be used as python binary
 RUN ln -s /usr/bin/python3.11 /usr/bin/python && ln -s /usr/bin/pip3.11 /usr/bin/pip
 
 # Install OpenBLAS
-RUN set -x \
-    && curl -LO https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.29/OpenBLAS-0.3.29.zip \
-    && unzip OpenBLAS-0.3.29.zip \
-    && cd OpenBLAS-0.3.29 \
-    &&  make DYNAMIC_ARCH=1 TARGET=POWER10 \
-    && make PREFIX=/usr/local/ install && cd ../ && rm -rf OpenBLAS-*
+RUN mkdir openblas && cd openblas && curl -LO https://ftp2.osuosl.org/pub/ppc64el/openblas/Openblas_0.3.29_ppc64le.tar.gz \
+    && tar -xvf Openblas_0.3.29_ppc64le.tar.gz \
+    && cp -r bin lib/ include/ /usr/local \
+    && cd ../ && rm -rf openblas
 
 # Install numctl library
 RUN git clone -b v2.0.16 --single-branch https://github.com/numactl/numactl
