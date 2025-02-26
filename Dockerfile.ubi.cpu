@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi:latest
+FROM registry.access.redhat.com/ubi9/ubi:latest AS vllm-openai
 USER root
 ENV CMAKE_PREFIX_PATH=/usr/
 ARG CARGO_HOME=/opt/.cargo/
@@ -6,7 +6,7 @@ ARG ARTIFACTORY_USER=""
 ARG ARTIFACTORY_TOKEN=""
 ARG PIP_EXTRA_INDEX_URL=https://${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN}@na.artifactory.swg-devops.com/artifactory/api/pypi/sys-linux-power-team-ftp3distro-odh-pypi-local/simple
 ARG PIP_TRUSTED_HOST=na.artifactory.swg-devops.com
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.12
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
 
 RUN dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm -y
@@ -14,7 +14,7 @@ RUN dnf install tar gcc-toolset-12* openssl-devel git protobuf-* bzip2 libtool a
 WORKDIR /workspace/
 
 # Update symlinks to make python with PYTHON_VERSION to be used as python binary
-RUN ln -s /usr/bin/python3.11 /usr/bin/python && ln -s /usr/bin/pip3.11 /usr/bin/pip
+RUN ln -s /usr/bin/python3.12 /usr/bin/python && ln -s /usr/bin/pip3.12 /usr/bin/pip
 
 # Install OpenBLAS
 RUN mkdir openblas && cd openblas && curl -LO https://ftp2.osuosl.org/pub/ppc64el/openblas/Openblas_0.3.29_ppc64le.tar.gz \
@@ -50,3 +50,22 @@ ENV HF_HUB_OFFLINE=0 \
     VLLM_WORKER_MULTIPROC_METHOD=fork
 
 ENTRYPOINT ["python", "-m", "vllm.entrypoints.openai.api_server"]
+
+FROM vllm-openai AS vllm-grpc-adapter
+
+USER root
+
+RUN python -m pip install -v --prefer-binary --extra-index-url $PIP_EXTRA_INDEX_URL grpcio==1.70.0 vllm_tgis_adapter==0.6.2
+
+RUN chmod -R g+rwx $HOME /home/vllm
+
+ENV GRPC_PORT=8033 \
+    PORT=8000 \
+    # As an optimization, vLLM disables logprobs when using spec decoding by
+    # default, but this would be unexpected to users of a hosted model that
+    # happens to have spec decoding
+    # see: https://github.com/vllm-project/vllm/pull/6485
+    DISABLE_LOGPROBS_DURING_SPEC_DECODING=false
+
+USER 2000
+ENTRYPOINT ["python", "-m", "vllm_tgis_adapter", "--uvicorn-log-level=warning"]
