@@ -10,7 +10,7 @@ ARG PYTHON_VERSION=3.12
 ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib
 
 RUN dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm -y
-RUN dnf install tar gcc-toolset-12* openssl-devel git protobuf-* bzip2 libtool autoconf re2-devel utf8proc.ppc64le rust cargo python${PYTHON_VERSION}-devel python${PYTHON_VERSION}-setuptools python${PYTHON_VERSION}-pip kmod python3-protobuf.noarch libtiff openjpeg2 libimagequant libxcb zeromq -y
+RUN dnf install tar gcc-toolset-12* openssl-devel git protobuf-* bzip2 libtool autoconf re2-devel utf8proc.ppc64le rust cargo python${PYTHON_VERSION}-devel python${PYTHON_VERSION}-setuptools python${PYTHON_VERSION}-pip kmod python3-protobuf.noarch libtiff openjpeg2 libimagequant libxcb zeromq numactl-devel -y
 WORKDIR /workspace/
 
 # Update symlinks to make python with PYTHON_VERSION to be used as python binary
@@ -21,10 +21,6 @@ RUN mkdir openblas && cd openblas && curl -LO https://ftp2.osuosl.org/pub/ppc64e
     && tar -xvf Openblas_0.3.29_ppc64le.tar.gz \
     && cp -r bin lib/ include/ /usr/local \
     && cd ../ && rm -rf openblas
-
-# Install numctl library
-RUN git clone -b v2.0.16 --single-branch https://github.com/numactl/numactl
-RUN cd /workspace/numactl && ./autogen.sh && ./configure && make install && cd .. && rm -rf numactl
 
 COPY ./ /workspace/vllm
 WORKDIR /workspace/vllm
@@ -54,13 +50,24 @@ ENTRYPOINT ["python", "-m", "vllm.entrypoints.openai.api_server"]
 FROM vllm-openai AS vllm-grpc-adapter
 
 USER root
+ARG ARTIFACTORY_USER=""
+ARG ARTIFACTORY_TOKEN=""
+ARG PIP_EXTRA_INDEX_URL=https://${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN}@na.artifactory.swg-devops.com/artifactory/api/pypi/sys-linux-power-team-ftp3distro-odh-pypi-local/simple
+ARG PIP_TRUSTED_HOST=na.artifactory.swg-devops.com
 
-RUN python -m pip install -v --prefer-binary --extra-index-url $PIP_EXTRA_INDEX_URL grpcio==1.70.0 vllm_tgis_adapter==0.6.2
+RUN git clone -b 0.6.2 https://github.com/opendatahub-io/vllm-tgis-adapter.git && cd vllm-tgis-adapter && git cherry-pick --no-commit 178d4bafcf6cb2ff8d8088d56ecc167572c83329 \
+    && pip install build && source /opt/rh/gcc-toolset-12/enable && GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1 python -m build && pip install dist/*whl -v --prefer-binary --extra-index-url $PIP_EXTRA_INDEX_URL
 
 RUN chmod -R g+rwx $HOME /home/vllm
 
-ENV GRPC_PORT=8033 \
+# Set environment variables
+ENV HF_HUB_OFFLINE=0 \
     PORT=8000 \
+    HOME=/home/vllm \
+    VLLM_USAGE_SOURCE=production-docker-image \
+    VLLM_WORKER_MULTIPROC_METHOD=fork
+
+ENV GRPC_PORT=8033 \
     # As an optimization, vLLM disables logprobs when using spec decoding by
     # default, but this would be unexpected to users of a hosted model that
     # happens to have spec decoding
