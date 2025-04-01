@@ -2,7 +2,7 @@
 
 # This script build the CPU docker image and run the offline inference inside the container.
 # It serves a sanity check for compilation and basic model usage.
-set -ex
+set -e
 
 export PIP_EXTRA_INDEX_URL=https://${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN}@na.artifactory.swg-devops.com/artifactory/api/pypi/sys-linux-power-team-ftp3distro-odh-pypi-local/simple
 export TRUSTED_HOST=na.artifactory.swg-devops.com
@@ -36,7 +36,7 @@ function cpu_tests() {
     pip install sentence-transformers librosa datamodel_code_generator
     pytest -v -s tests/models/embedding/language/test_cls_models.py::test_classification_models[float-jason9693/Qwen2.5-1.5B-apeach]
     pytest -v -s tests/models/embedding/language/test_embedding.py::test_models[half-BAAI/bge-base-en-v1.5]
-    pytest -v -s tests/models/encoder_decoder/language -m cpu_model
+    pytest -v -s tests/models/encoder_decoder/language -m cpu_model"
 }
 
 # All of CPU tests are expected to be finished less than 40 mins.
