@@ -229,6 +229,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     git clone https://github.com/huggingface/xet-core.git && cd xet-core/hf_xet/ && \
     uv pip install maturin && \
     uv build --wheel --out-dir /hf_wheels/
+ENV CXXFLAGS="-Wno-error -fno-lto"
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,from=torch-builder,source=/torchwheels/,target=/torchwheels/,ro \
     --mount=type=bind,from=arrow-builder,source=/arrowwheels/,target=/arrowwheels/,ro \
