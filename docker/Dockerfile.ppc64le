@@ -28,7 +28,7 @@ RUN  microdnf install -y dnf && \
         dnf config-manager --set-enabled crb
 
 RUN dnf install -y openjpeg2-devel lcms2-devel tcl-devel tk-devel fribidi-devel yajl-devel && \
-    dnf remove -y centos-gpg-keys-9.0-24.el9.noarch centos-stream-repos-9.0-26.el9.noarch 
+    dnf remove -y centos-gpg-keys-9.0-28.el9.noarch centos-stream-repos-9.0-26.el9.noarch 
 
 
 ###############################################################
@@ -87,6 +87,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     source /opt/rh/gcc-toolset-14/enable &&  \
     git clone --recursive https://github.com/pytorch/pytorch.git -b v${TORCH_VERSION} && \
     cd pytorch && \
+    pip install uv==0.5.9 && \
+    uv pip install lintrunner==0.13.0 && \
+    pip install --upgrade uv==0.10.2 && \
     uv pip install -r requirements.txt && \
     python setup.py develop && \
     rm -f dist/torch*+git*whl && \
