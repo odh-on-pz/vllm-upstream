@@ -35,6 +35,8 @@ microdnf install -y \
     ninja-build openjpeg2-devel pkgconfig protobuf* \
     tcl-devel tk-devel xsimd-devel zeromq-devel zlib-devel patchelf file
 
+rpm -ivh --nodeps https://mirror.stream.centos.org/9-stream/CRB/ppc64le/os/Packages/protobuf-lite-devel-3.14.0-17.el9.ppc64le.rpm
+
 ########################################
 # Python 3.12 virtual environment
 ########################################
@@ -382,7 +384,6 @@ install_llvmlite
 install_pyarrow
 install_numba
 install_xgrammar
-#install_opencv
 
 ########################################
 # install built wheels
