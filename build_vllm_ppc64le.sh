@@ -81,7 +81,6 @@ export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
 # wheel dir
 ########################################
 
-export WHEEL_DIR=/wheelhouse
 mkdir -p $WHEEL_DIR
 
 ########################################
