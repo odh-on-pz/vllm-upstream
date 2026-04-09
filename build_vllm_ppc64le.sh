@@ -33,7 +33,7 @@ microdnf install -y \
     harfbuzz-devel kmod lcms2-devel libimagequant-devel libjpeg-turbo-devel \
     llvm15-devel libraqm-devel libtiff-devel libwebp-devel libxcb-devel \
     ninja-build openjpeg2-devel pkgconfig protobuf* \
-    tcl-devel tk-devel xsimd-devel zeromq-devel zlib-devel patchelf file
+    tcl-devel tk-devel xsimd-devel zeromq-devel zlib-devel patchelf file libjpeg-turbo-devel
 
 rpm -ivh --nodeps https://mirror.stream.centos.org/9-stream/CRB/ppc64le/os/Packages/protobuf-lite-devel-3.14.0-17.el9.ppc64le.rpm
 
@@ -55,7 +55,7 @@ python --version
 pip install -U pip
 pip install "uv==0.4.30"
 pip install "setuptools<70" build wheel cmake auditwheel
-uv pip install "setuptools<70" cython meson-python --no-build-isolation
+uv pip install "setuptools<70" cython cmake meson-python --no-build-isolation
 
 ########################################
 # Rust
@@ -101,6 +101,15 @@ try_install_from_devpi() {
     fi
     return 1
 }
+
+export CMAKE_C_COMPILER=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
+export CMAKE_CXX_COMPILER=/opt/rh/gcc-toolset-14/root/usr/bin/g++
+source /opt/rh/gcc-toolset-14/enable
+g++ --version
+export CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
+export CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
+
+uv pip install sentencepiece==0.2.1 --no-build-isolation
 
 ########################################
 # LAPACK
@@ -263,7 +272,7 @@ install_opencv() {
     sed -i -E -e 's/"setuptools.+",/"setuptools",/g' pyproject.toml && \
     #sed -i '/numpy==2.0.2/d' pyproject.toml && \
     #try_install_from_devpi numpy==2.0.2 && \
-    #uv pip install scikit-build>=0.14.0 --no-build-isolation && \
+    uv pip install scikit-build>=0.14.0 --no-build-isolation && \
     uv build --wheel --out-dir ${WHEEL_DIR} && \
     cd "$REPO_ROOT" && \
     rm -rf $TEMP_BUILD_DIR
@@ -344,9 +353,6 @@ install_xgrammar() {
     TEMP_BUILD_DIR=$(mktemp -d)
     cd ${TEMP_BUILD_DIR}
 
-    echo "========== Using GCC 13 =========="
-    microdnf install -y gcc-toolset-13
-    source /opt/rh/gcc-toolset-13/enable
 
     export CFLAGS="-fno-lto -mcpu=power9"
     export CXXFLAGS="-fno-lto -mcpu=power9"
@@ -370,13 +376,15 @@ install_xgrammar() {
     cd ${REPO_ROOT}
     rm -rf ${TEMP_BUILD_DIR}
 
-    microdnf remove gcc-toolset-13 -y || true
 }
 
 
 ########################################
 # RUN BUILDS
 ########################################
+gcc --version
+echo "==========================================="
+uv pip install sentencepiece==0.2.1
 install_opencv
 install_torch_family
 install_llvmlite
@@ -390,13 +398,23 @@ install_xgrammar
 #echo "setuptools<70.0.0" > build_constraints.txt
 #uv pip install ${WHEEL_DIR}/numba*.whl --build-constraint build_constraints.txt
 
+gcc --version
+
+source /opt/rh/gcc-toolset-14/enable
+
+gcc --version
+export CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
+export CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
+
+echo $PATH
+uv pip install maturin setuptools-rust scikit-build-core pybind11 nanobind \
+    --no-build-isolation
+
 uv pip install ${WHEEL_DIR}/*.whl \
     --extra-index-url "$IBM_DEVPI_URL" \
     --index-strategy unsafe-best-match \
     --no-build-isolation
 
-uv pip install maturin setuptools-rust scikit-build-core pybind11 nanobind \
-    --no-build-isolation
 #sed -i.bak -e 's/.*torch.*//g' pyproject.toml requirements/*.txt
 #uv pip install ${WHEEL_DIR}/*.whl || true
 
