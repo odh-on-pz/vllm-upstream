@@ -54,8 +54,6 @@ python --version
 
 pip install -U pip
 pip install "uv==0.4.30"
-#pip install "setuptools<70" build wheel cmake auditwheel
-#uv pip install "setuptools<70" cython cmake meson-python --no-build-isolation
 uv pip install setuptools cython build wheel auditwheel cmake meson-python --no-build-isolation
 
 ########################################
@@ -102,26 +100,6 @@ try_install_from_devpi() {
     fi
     return 1
 }
-
-install_opencv() {
-    TEMP_BUILD_DIR=$(mktemp -d)
-    cd ${TEMP_BUILD_DIR}
-    export OPENCV_VERSION=92
-
-    export ENABLE_HEADLESS=1
-    git clone --recursive https://github.com/opencv/opencv-python.git -b ${OPENCV_VERSION} && \
-    cd opencv-python && \
-    if  [[ ${OPENCV_VERSION} == "92" ]]; then sed -i 's/__ARCH_PWR10__/__ARCH_PWR10__)/' opencv/modules/core/include/opencv2/core/vsx_utils.hpp; fi && \
-    #sed -i -E -e 's/"setuptools.+",/"setuptools",/g' pyproject.toml && \
-    #sed -i '/numpy==2.0.2/d' pyproject.toml && \
-    #try_install_from_devpi numpy==2.0.2 && \
-#    uv pip install scikit-build 'setuptools==77.0.3' --no-build-isolation && \
-    uv build --wheel --out-dir ${WHEEL_DIR} && \
-    cd "$REPO_ROOT" && \
-    rm -rf $TEMP_BUILD_DIR
-
-}
-install_opencv
 
 ########################################
 # LAPACK
@@ -193,7 +171,6 @@ install_torch_family() {
     export OPENBLAS_HOME="/usr/local"
     export PKG_CONFIG_PATH="$OPENBLAS_HOME/lib/pkgconfig:${PKG_CONFIG_PATH}"
     export LIBRARY_PATH="$OPENBLAS_HOME/lib:${LD_LIBRARY_PATH}"
-    #export CMAKE_PREFIX_PATH="$OPENBLAS_HOME:${CMAKE_PREFIX_PATH}"
     export C_INCLUDE_DIR="$OPENBLAS_HOME/include"
     export CPLUS_INCLUDE_DIR="$OPENBLAS_HOME/include"
 
@@ -217,7 +194,6 @@ install_torch_family() {
     export TORCHVISION_USE_NVJPEG=0 TORCHVISION_USE_FFMPEG=0
     git clone --recursive https://github.com/pytorch/vision.git -b v${TORCHVISION_VERSION}
     cd vision
-    #uv pip install "setuptools<70"
     uv pip install standard-pkg-resources --no-build-isolation
     MAX_JOBS=${MAX_JOBS:-$(nproc)} \
     BUILD_VERSION=${TORCHVISION_VERSION} \
@@ -237,8 +213,6 @@ install_torch_family() {
     cd ${REPO_ROOT}
     rm -rf ${TEMP_BUILD_DIR}
 
-#    try_install_from_devpi torchvision
-#    try_install_from_devpi torchaudio
 }
 
 # TODO(): figure out exact llvmlite version needed by numba
@@ -320,7 +294,6 @@ install_numba() {
 TEMP_BUILD_DIR=$(mktemp -d)
 cd $TEMP_BUILD_DIR
 
-#NUMBA_VERSION=$(grep -Eo '^numba.+;' $REPO_ROOT/requirements/cpu.txt | grep -Eo '[0-9.]+' | tail -1)
 NUMBA_VERSION=$(grep 'numba' "$REPO_ROOT/requirements/cpu.txt" | \
     sed -E 's/.*numba *== *([0-9.]+).*/\1/' | \
     head -1)
@@ -371,21 +344,32 @@ install_xgrammar() {
 
 }
 
+install_opencv() {
+    TEMP_BUILD_DIR=$(mktemp -d)
+    cd ${TEMP_BUILD_DIR}
+    export OPENCV_VERSION=92
+
+    export ENABLE_HEADLESS=1
+    git clone --recursive https://github.com/opencv/opencv-python.git -b ${OPENCV_VERSION} && \
+    cd opencv-python && \
+    if  [[ ${OPENCV_VERSION} == "92" ]]; then sed -i 's/__ARCH_PWR10__/__ARCH_PWR10__)/' opencv/modules/core/include/opencv2/core/vsx_utils.hpp; fi && \
+    uv build --wheel --out-dir ${WHEEL_DIR} && \
+    cd "$REPO_ROOT" && \
+    rm -rf $TEMP_BUILD_DIR
+
+}
+
 
 ########################################
 # RUN BUILDS
 ########################################
-gcc --version
-echo "==========================================="
 export CMAKE_C_COMPILER=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
 export CMAKE_CXX_COMPILER=/opt/rh/gcc-toolset-14/root/usr/bin/g++
 source /opt/rh/gcc-toolset-14/enable
-g++ --version
 export CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
 export CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
 
 uv pip install sentencepiece==0.2.1 --no-build-isolation
-
 
 install_opencv
 install_torch_family
@@ -397,18 +381,7 @@ install_xgrammar
 ########################################
 # install built wheels
 ########################################
-#echo "setuptools<70.0.0" > build_constraints.txt
-#uv pip install ${WHEEL_DIR}/numba*.whl --build-constraint build_constraints.txt
 
-gcc --version
-
-source /opt/rh/gcc-toolset-14/enable
-
-gcc --version
-export CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
-export CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
-
-echo $PATH
 uv pip install maturin setuptools-rust scikit-build-core pybind11 nanobind \
     --no-build-isolation
 
@@ -417,23 +390,18 @@ uv pip install ${WHEEL_DIR}/*.whl \
     --index-strategy unsafe-best-match \
     --no-build-isolation
 
-#sed -i.bak -e 's/.*torch.*//g' pyproject.toml requirements/*.txt
-#uv pip install ${WHEEL_DIR}/*.whl || true
 
 ########################################
 # install remaining deps
 ########################################
 
 sed -i.bak -e 's/.*torch.*//g' pyproject.toml requirements/*.txt
-#pip install "setuptools>=75"
 
 uv pip install httptools \
     --extra-index-url "$IBM_DEVPI_URL" \
     --index-strategy unsafe-best-match \
     --no-build-isolation || true
 
-# revert back for numba/llvmlite compatibility
-#uv pip install "setuptools<70" --no-build-isolation
 
 export PKG_CONFIG_PATH=$(find / -type d -name "pkgconfig" 2>/dev/null | tr '\n' ':')
 

@@ -21,8 +21,6 @@ ENV GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
 ENV CARGO_HOME=/root/.cargo
 ENV RUSTUP_HOME=/root/.rustup
 ENV PATH=/root/.cargo/bin:/root/.rustup/bin:${VIRTUAL_ENV}/bin:$PATH
-#ENV UV_EXTRA_INDEX_URL=https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/
-#ENV UV_INDEX_STRATEGY=unsafe-best-match
 
 
 RUN --mount=type=cache,target=/var/cache/dnf \
@@ -63,8 +61,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     source /opt/rh/gcc-toolset-14/enable && \
     export IBM_DEVPI_URL="https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" && \
     uv cache prune && \
-    uv pip install $WHEEL_DIR/*.whl --extra-index-url $IBM_DEVPI_URL --index-strategy unsafe-best-match --verbose --force-reinstall --refresh && \
-    find /root/.cache/uv -name "*.whl"
+    uv pip install $WHEEL_DIR/*.whl --extra-index-url $IBM_DEVPI_URL --index-strategy unsafe-best-match --verbose --force-reinstall --refresh
 
 ###############################################################
 #                   FINAL VLLM IMAGE STAGE                    #
@@ -117,22 +114,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN microdnf install --nodocs -y util-linux && \
     microdnf clean all
 
-#RUN --mount=type=cache,target=/root/.cache/uv \
-#    --mount=type=cache,from=builder-base,source=/wheelsdir/,target=/wheelsdir/,ro \
-    #rpm -ivh https://www.rpmfind.net/linux/centos-stream/9-stream/BaseOS/ppc64le/os/Packages/tree-1.8.0-10.el9.ppc64le.rpm && \
-    #tree /root/.cache/uv && \
-#    find /root/.cache/uv -name "*.whl" && \
-#    ls -lrt /wheelsdir
-
 # consume previously built wheels
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=cache,from=builder-base,source=/wheelsdir/,target=/wheelsdir/,ro \
-    uv cache dir && \
-    find /root/.cache/uv -name "*.whl" && \
     export PKG_CONFIG_PATH=$(find / -type d -name "pkgconfig" 2>/dev/null | tr '\n' ':') && \
     # --offline will ensure wheels are picked from uv cache and nothing is pulled from pypi/built from source
     # vllm wheel should be present in /wheelsdir/ ( at least for ppc64le - and transitive dependencies in uv cache )
-    uv pip install 'setuptools==77.0.3' && \
     HOME=/root uv pip install /wheelsdir/*.whl --offline
 
 ENV LD_PRELOAD=/usr/lib64/libtcmalloc.so.4
