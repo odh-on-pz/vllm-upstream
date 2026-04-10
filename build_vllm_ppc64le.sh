@@ -54,8 +54,9 @@ python --version
 
 pip install -U pip
 pip install "uv==0.4.30"
-pip install "setuptools<70" build wheel cmake auditwheel
-uv pip install "setuptools<70" cython cmake meson-python --no-build-isolation
+#pip install "setuptools<70" build wheel cmake auditwheel
+#uv pip install "setuptools<70" cython cmake meson-python --no-build-isolation
+uv pip install setuptools cython build wheel auditwheel cmake meson-python --no-build-isolation
 
 ########################################
 # Rust
@@ -102,14 +103,25 @@ try_install_from_devpi() {
     return 1
 }
 
-export CMAKE_C_COMPILER=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
-export CMAKE_CXX_COMPILER=/opt/rh/gcc-toolset-14/root/usr/bin/g++
-source /opt/rh/gcc-toolset-14/enable
-g++ --version
-export CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
-export CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
+install_opencv() {
+    TEMP_BUILD_DIR=$(mktemp -d)
+    cd ${TEMP_BUILD_DIR}
+    export OPENCV_VERSION=92
 
-uv pip install sentencepiece==0.2.1 --no-build-isolation
+    export ENABLE_HEADLESS=1
+    git clone --recursive https://github.com/opencv/opencv-python.git -b ${OPENCV_VERSION} && \
+    cd opencv-python && \
+    if  [[ ${OPENCV_VERSION} == "92" ]]; then sed -i 's/__ARCH_PWR10__/__ARCH_PWR10__)/' opencv/modules/core/include/opencv2/core/vsx_utils.hpp; fi && \
+    #sed -i -E -e 's/"setuptools.+",/"setuptools",/g' pyproject.toml && \
+    #sed -i '/numpy==2.0.2/d' pyproject.toml && \
+    #try_install_from_devpi numpy==2.0.2 && \
+#    uv pip install scikit-build 'setuptools==77.0.3' --no-build-isolation && \
+    uv build --wheel --out-dir ${WHEEL_DIR} && \
+    cd "$REPO_ROOT" && \
+    rm -rf $TEMP_BUILD_DIR
+
+}
+install_opencv
 
 ########################################
 # LAPACK
@@ -205,7 +217,8 @@ install_torch_family() {
     export TORCHVISION_USE_NVJPEG=0 TORCHVISION_USE_FFMPEG=0
     git clone --recursive https://github.com/pytorch/vision.git -b v${TORCHVISION_VERSION}
     cd vision
-    uv pip install "setuptools<70"
+    #uv pip install "setuptools<70"
+    uv pip install standard-pkg-resources --no-build-isolation
     MAX_JOBS=${MAX_JOBS:-$(nproc)} \
     BUILD_VERSION=${TORCHVISION_VERSION} \
     uv build --wheel --out-dir ${WHEEL_DIR} --no-build-isolation
@@ -257,26 +270,6 @@ install_llvmlite() {
 
     cd "$REPO_ROOT"
     rm -rf $TEMP_BUILD_DIR
-}
-
-
-install_opencv() {
-    TEMP_BUILD_DIR=$(mktemp -d)
-    cd ${TEMP_BUILD_DIR}
-    export OPENCV_VERSION=92
-
-    export ENABLE_HEADLESS=1
-    git clone --recursive https://github.com/opencv/opencv-python.git -b ${OPENCV_VERSION} && \
-    cd opencv-python && \
-    if  [[ ${OPENCV_VERSION} == "92" ]]; then sed -i 's/__ARCH_PWR10__/__ARCH_PWR10__)/' opencv/modules/core/include/opencv2/core/vsx_utils.hpp; fi && \
-    sed -i -E -e 's/"setuptools.+",/"setuptools",/g' pyproject.toml && \
-    #sed -i '/numpy==2.0.2/d' pyproject.toml && \
-    #try_install_from_devpi numpy==2.0.2 && \
-    uv pip install scikit-build>=0.14.0 --no-build-isolation && \
-    uv build --wheel --out-dir ${WHEEL_DIR} && \
-    cd "$REPO_ROOT" && \
-    rm -rf $TEMP_BUILD_DIR
-
 }
 
 
@@ -384,7 +377,16 @@ install_xgrammar() {
 ########################################
 gcc --version
 echo "==========================================="
-uv pip install sentencepiece==0.2.1
+export CMAKE_C_COMPILER=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
+export CMAKE_CXX_COMPILER=/opt/rh/gcc-toolset-14/root/usr/bin/g++
+source /opt/rh/gcc-toolset-14/enable
+g++ --version
+export CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
+export CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
+
+uv pip install sentencepiece==0.2.1 --no-build-isolation
+
+
 install_opencv
 install_torch_family
 install_llvmlite
@@ -431,7 +433,7 @@ uv pip install httptools \
     --no-build-isolation || true
 
 # revert back for numba/llvmlite compatibility
-uv pip install "setuptools<70" --no-build-isolation
+#uv pip install "setuptools<70" --no-build-isolation
 
 export PKG_CONFIG_PATH=$(find / -type d -name "pkgconfig" 2>/dev/null | tr '\n' ':')
 

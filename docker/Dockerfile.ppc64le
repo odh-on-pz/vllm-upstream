@@ -21,8 +21,8 @@ ENV GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
 ENV CARGO_HOME=/root/.cargo
 ENV RUSTUP_HOME=/root/.rustup
 ENV PATH=/root/.cargo/bin:/root/.rustup/bin:${VIRTUAL_ENV}/bin:$PATH
-ENV UV_EXTRA_INDEX_URL=https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/
-ENV UV_INDEX_STRATEGY=unsafe-best-match
+#ENV UV_EXTRA_INDEX_URL=https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/
+#ENV UV_INDEX_STRATEGY=unsafe-best-match
 
 
 RUN --mount=type=cache,target=/var/cache/dnf \
